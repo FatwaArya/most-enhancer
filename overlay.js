@@ -150,35 +150,14 @@
     }
   };
 
-  // ─── Tags (positioned over cells, not inside them) ───
+  // ─── Tags (freq spikes only — positioned at grid edges, not over data) ───
 
-  const updateTags = (walls, spikes, settings, overlay, containerRect, state) => {
-    for (const w of walls) {
-      if (!w.rowElement) continue;
-      const rs = getRowState(state, w.rowElement);
-      const pos = measureRow(w.rowElement, containerRect);
+  const updateTags = (spikes, overlay, containerRect, state) => {
+    const activeRows = new Set(spikes.map(s => s.rowElement));
 
-      if (!rs.tagWall) {
-        rs.tagWall = document.createElement('span');
-        rs.tagWall.className = `${P}-tag ${P}-tag--wall`;
-        rs.tagWall.textContent = 'WALL';
-        overlay.appendChild(rs.tagWall);
-      }
-      positionTag(rs.tagWall, pos, w.side, 0);
-      rs.tagWall.style.display = '';
-
-      if (w.lot >= (settings.bigLotThreshold || 500000)) {
-        if (!rs.tagBig) {
-          rs.tagBig = document.createElement('span');
-          rs.tagBig.className = `${P}-tag ${P}-tag--big`;
-          rs.tagBig.textContent = 'BIG';
-          overlay.appendChild(rs.tagBig);
-        }
-        positionTag(rs.tagBig, pos, w.side, 36);
-        rs.tagBig.style.display = '';
-      } else if (rs.tagBig) {
-        rs.tagBig.style.display = 'none';
-      }
+    // Hide all tags first
+    for (const [, rs] of state.rows) {
+      if (rs.tagSpike) rs.tagSpike.style.display = 'none';
     }
 
     for (const s of spikes) {
@@ -192,30 +171,15 @@
         rs.tagSpike.textContent = '\uD83D\uDD25';
         overlay.appendChild(rs.tagSpike);
       }
-      positionTag(rs.tagSpike, pos, s.side, 0);
+
+      // Position at the outer edge so it doesn't cover price data
       rs.tagSpike.style.display = '';
-    }
-
-    // Hide tags for rows that are no longer walls/spikes
-    const activeRows = new Set([
-      ...walls.map(w => w.rowElement),
-      ...spikes.map(s => s.rowElement),
-    ]);
-    for (const [rowEl, rs] of state.rows) {
-      if (!activeRows.has(rowEl)) {
-        if (rs.tagWall) rs.tagWall.style.display = 'none';
-        if (rs.tagBig) rs.tagBig.style.display = 'none';
-        if (rs.tagSpike) rs.tagSpike.style.display = 'none';
+      rs.tagSpike.style.top = `${pos.top + 1}px`;
+      if (s.side === 'bid') {
+        rs.tagSpike.style.left = `${pos.left - 18}px`;  // left of bid table
+      } else {
+        rs.tagSpike.style.left = `${pos.left + pos.width + 4}px`; // right of ask table
       }
-    }
-  };
-
-  const positionTag = (tag, pos, side, offsetRight) => {
-    tag.style.top = `${pos.top + 1}px`;
-    if (side === 'bid') {
-      tag.style.left = `${pos.left + pos.width - 40 - offsetRight}px`;
-    } else {
-      tag.style.left = `${pos.left + 4 + offsetRight}px`;
     }
   };
 
@@ -401,7 +365,7 @@
 
       updateLotIndicators(bidRows, 'bid', overlay, containerRect, state);
       updateLotIndicators(askRows, 'ask', overlay, containerRect, state);
-      updateTags(walls, spikes, settings, overlay, containerRect, state);
+      updateTags(spikes, overlay, containerRect, state);
 
       // Container-level overlays
       if (settings.imbalanceEnabled !== false) {
