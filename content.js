@@ -307,7 +307,9 @@
         state.observer.disconnect();
         prevImbalances.delete(container);
         obState.delete(container);
+        if (window.ObOverlay) window.ObOverlay.clearOverlay(container);
         if (window.ObControlPanel) window.ObControlPanel.destroy(container);
+        if (window.ObAlerts) window.ObAlerts.clearAlerts(container);
       }
     }
 

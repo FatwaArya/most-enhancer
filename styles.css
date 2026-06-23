@@ -1,6 +1,7 @@
 /* ═══════════════════════════════════════════════════
    MOST Enhancer — Design System v2
-   Tight, readable, GPU-only animations, no flicker.
+   Zero-injection overlays. All visuals in a single
+   absolutely-positioned overlay div per container.
    ═══════════════════════════════════════════════════ */
 
 /* ─── Custom Properties ─── */
@@ -24,178 +25,70 @@
   --ob-mono: 'SF Mono', 'Cascadia Code', 'Fira Code', monospace;
 }
 
-/* ─── Control Panel (bottom-anchored) ─── */
+/* ─── Main Overlay Container ─── */
 
-.ob-cp-root {
+.ob-ext-overlay {
   position: absolute;
-  bottom: 0;
-  left: 0;
-  right: 0;
-  z-index: 9998;
-  pointer-events: auto;
-}
-
-.ob-cp-compact {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 3px 8px;
-  background: rgba(13, 17, 23, 0.92);
-  backdrop-filter: blur(6px);
-  -webkit-backdrop-filter: blur(6px);
-  border-top: 1px solid var(--ob-border);
-  opacity: 0.75;
-  transition: opacity 150ms var(--ob-ease);
-}
-
-.ob-cp-root:hover .ob-cp-compact {
-  opacity: 1;
-}
-
-.ob-cp-metrics {
-  display: flex;
-  gap: 8px;
-  align-items: center;
-}
-
-.ob-cp-metric {
-  font-size: 10px;
-  font-family: var(--ob-mono);
-  font-variant-numeric: tabular-nums;
-  font-weight: 600;
-  letter-spacing: 0.01em;
-  white-space: nowrap;
-}
-
-.ob-cp-metric--alert {
-  animation: ob-pulse 2s ease-in-out infinite;
-}
-
-@keyframes ob-pulse {
-  0%, 100% { opacity: 1; }
-  50% { opacity: 0.5; }
-}
-
-.ob-cp-toggle {
-  background: none;
-  border: none;
-  color: var(--ob-text-dim);
-  font-size: 12px;
-  cursor: pointer;
-  padding: 0 2px;
-  line-height: 1;
-  transition: color 150ms var(--ob-ease), transform 160ms var(--ob-ease);
-}
-
-.ob-cp-toggle:hover {
-  color: var(--ob-text-mid);
-}
-
-.ob-cp-toggle:active {
-  transform: scale(0.9);
-}
-
-/* Expanded panel — grows upward from bottom */
-.ob-cp-expanded {
-  display: flex;
-  gap: 4px;
-  padding: 4px 8px;
-  background: rgba(13, 17, 23, 0.95);
-  backdrop-filter: blur(6px);
-  -webkit-backdrop-filter: blur(6px);
-  border-top: 1px solid var(--ob-border);
-  opacity: 0;
-  transform: translateY(4px);
+  inset: 0;
   pointer-events: none;
-  transition: opacity 150ms var(--ob-ease), transform 150ms var(--ob-ease);
-  flex-wrap: wrap;
-  order: -1;
+  z-index: 100;
+  overflow: hidden;
 }
 
-.ob-cp-root:hover .ob-cp-expanded {
-  opacity: 1;
-  transform: translateY(0);
-  pointer-events: auto;
-}
-
-.ob-cp-feat-btn {
-  font-size: 9px;
-  font-family: var(--ob-font);
-  font-weight: 600;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
-  padding: 2px 6px;
-  border: 1px solid var(--ob-border);
-  border-radius: 4px;
-  background: var(--ob-surface);
-  color: var(--ob-text-mid);
-  cursor: pointer;
-  white-space: nowrap;
-  transition: background 150ms var(--ob-ease), color 150ms var(--ob-ease),
-              border-color 150ms var(--ob-ease), transform 160ms var(--ob-ease);
-}
-
-.ob-cp-feat-btn:hover {
-  border-color: #30363d;
-  color: var(--ob-text);
-}
-
-.ob-cp-feat-btn:active {
-  transform: scale(0.95);
-}
-
-.ob-cp-feat-btn--off {
-  opacity: 0.35;
-  background: transparent;
-}
-
-/* ─── Depth Bars ─── */
+/* ─── Depth Bars (full-height, outside edges) ─── */
 
 .ob-ext-depth-bar {
   position: absolute;
-  top: 0;
-  height: 100%;
   pointer-events: none;
   z-index: 1;
   border-radius: 2px;
+  transition: width 120ms var(--ob-ease), opacity 120ms var(--ob-ease);
 }
 
 .ob-ext-depth-bar.ob-ext-bid {
-  right: 0;
-  background: rgba(63, 185, 80, 0.18);
+  background: rgba(63, 185, 80, 0.22);
 }
 
 .ob-ext-depth-bar.ob-ext-ask {
-  left: 0;
-  background: rgba(248, 81, 73, 0.18);
+  background: rgba(248, 81, 73, 0.22);
 }
 
-/* ─── Tags ─── */
+/* ─── Lot Size Bars (thin edge indicators) ─── */
+
+.ob-ext-lot-bar {
+  position: absolute;
+  width: 3px;
+  pointer-events: none;
+  z-index: 2;
+  border-radius: 1px;
+}
+
+/* ─── Tags (floating over rows) ─── */
 
 .ob-ext-tag {
+  position: absolute;
   font-size: 8px;
   padding: 1px 4px;
   border-radius: 3px;
-  margin-left: 4px;
-  vertical-align: middle;
   font-weight: 700;
   pointer-events: none;
-  display: inline-block;
   line-height: 1.3;
   letter-spacing: 0.06em;
   font-family: var(--ob-font);
+  white-space: nowrap;
+  z-index: 3;
 }
 
-.ob-ext-tag--wall { background: rgba(124, 45, 18, 0.6); color: var(--ob-orange); }
-.ob-ext-tag--big  { background: rgba(26, 47, 26, 0.6); color: var(--ob-green); }
-.ob-ext-tag--hot  { background: rgba(26, 26, 0, 0.6); color: var(--ob-yellow); }
+.ob-ext-tag--wall { background: rgba(124, 45, 18, 0.7); color: var(--ob-orange); }
+.ob-ext-tag--big  { background: rgba(26, 47, 26, 0.7); color: var(--ob-green); }
+.ob-ext-tag--hot  { background: rgba(26, 26, 0, 0.7); color: var(--ob-yellow); }
 
-/* ─── Row Highlights ─── */
+/* ─── Row Highlights (safe — class on original rows) ─── */
 
 tr.ob-ext-row--wall  { background: rgba(210, 153, 34, 0.06) !important; }
 tr.ob-ext-row--spike { background: rgba(227, 179, 65, 0.05) !important; }
 
-/* ─── Frequency Coloring ─── */
+/* ─── Frequency Coloring (safe — class on original cells) ─── */
 
 .ob-ext-freq--cold  { color: #30363d !important; }
 .ob-ext-freq--warm  { color: var(--ob-orange) !important; }
@@ -277,10 +170,6 @@ tr.ob-ext-row--spike { background: rgba(227, 179, 65, 0.05) !important; }
 
 .ob-ext-spread-bar b { color: var(--ob-text-mid); font-weight: 700; }
 
-/* ─── Cumulative Depth ─── */
-
-.ob-ext-cum-bar { pointer-events: none; }
-
 /* ─── Alert Panel ─── */
 
 .ob-ext-alert-panel {
@@ -322,14 +211,115 @@ tr.ob-ext-row--spike { background: rgba(227, 179, 65, 0.05) !important; }
 .ob-ext-alert-msg { flex: 1; overflow: hidden; text-overflow: ellipsis; font-weight: 600; color: var(--ob-text); }
 .ob-ext-alert-time { color: #30363d; font-size: 8px; flex-shrink: 0; font-variant-numeric: tabular-nums; }
 
-/* ─── Lot Indicators ─── */
+/* ─── Control Panel (bottom-anchored) ─── */
 
-.ob-ext-lot-indicator {
+.ob-cp-root {
   position: absolute;
-  pointer-events: none;
-  z-index: 2;
-  border-radius: 1px;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  z-index: 9998;
+  pointer-events: auto;
 }
+
+.ob-cp-compact {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 3px 8px;
+  background: rgba(13, 17, 23, 0.92);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+  border-top: 1px solid var(--ob-border);
+  opacity: 0.75;
+  transition: opacity 150ms var(--ob-ease);
+}
+
+.ob-cp-root:hover .ob-cp-compact {
+  opacity: 1;
+}
+
+.ob-cp-metrics {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.ob-cp-metric {
+  font-size: 10px;
+  font-family: var(--ob-mono);
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  white-space: nowrap;
+}
+
+.ob-cp-metric--alert {
+  animation: ob-pulse 2s ease-in-out infinite;
+}
+
+@keyframes ob-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.5; }
+}
+
+.ob-cp-toggle {
+  background: none;
+  border: none;
+  color: var(--ob-text-dim);
+  font-size: 12px;
+  cursor: pointer;
+  padding: 0 2px;
+  line-height: 1;
+  transition: color 150ms var(--ob-ease), transform 160ms var(--ob-ease);
+}
+
+.ob-cp-toggle:hover { color: var(--ob-text-mid); }
+.ob-cp-toggle:active { transform: scale(0.9); }
+
+/* Expanded panel — grows upward from bottom */
+.ob-cp-expanded {
+  display: flex;
+  gap: 4px;
+  padding: 4px 8px;
+  background: rgba(13, 17, 23, 0.95);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+  border-top: 1px solid var(--ob-border);
+  opacity: 0;
+  transform: translateY(4px);
+  pointer-events: none;
+  transition: opacity 150ms var(--ob-ease), transform 150ms var(--ob-ease);
+  flex-wrap: wrap;
+  order: -1;
+}
+
+.ob-cp-root:hover .ob-cp-expanded {
+  opacity: 1;
+  transform: translateY(0);
+  pointer-events: auto;
+}
+
+.ob-cp-feat-btn {
+  font-size: 9px;
+  font-family: var(--ob-font);
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  padding: 2px 6px;
+  border: 1px solid var(--ob-border);
+  border-radius: 4px;
+  background: var(--ob-surface);
+  color: var(--ob-text-mid);
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background 150ms var(--ob-ease), color 150ms var(--ob-ease),
+              border-color 150ms var(--ob-ease), transform 160ms var(--ob-ease);
+}
+
+.ob-cp-feat-btn:hover { border-color: #30363d; color: var(--ob-text); }
+.ob-cp-feat-btn:active { transform: scale(0.95); }
+.ob-cp-feat-btn--off { opacity: 0.35; background: transparent; }
 
 /* ─── PVF Cells ─── */
 
@@ -340,6 +330,7 @@ td[data-pvf="cell"] {
 /* ─── Reduced Motion ─── */
 
 @media (prefers-reduced-motion: reduce) {
+  .ob-ext-depth-bar,
   .ob-ext-meter-fill,
   .ob-ext-alert-item,
   td[data-pvf="cell"],
@@ -349,17 +340,13 @@ td[data-pvf="cell"] {
   .ob-cp-toggle {
     transition-duration: 0ms;
   }
-  .ob-cp-metric--alert {
-    animation: none;
-  }
+  .ob-cp-metric--alert { animation: none; }
 }
 
 /* ─── Hover gating ─── */
 
 @media (hover: hover) and (pointer: fine) {
-  .ob-cp-root:hover .ob-cp-compact {
-    opacity: 1;
-  }
+  .ob-cp-root:hover .ob-cp-compact { opacity: 1; }
   .ob-cp-root:hover .ob-cp-expanded {
     opacity: 1;
     transform: translateY(0);
