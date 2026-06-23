@@ -1,15 +1,7 @@
 /**
- * control-panel.js — Per-container floating control panel.
+ * control-panel.js — Per-container floating control panel (bottom).
  * Compact metrics bar with expandable feature toggles.
- * Cognitive ergonomics: minimal noise in default state, details on hover.
- * Loaded fourth via manifest.json. Exposes window.ObControlPanel.
- *
- * Emil Kowalski principles applied:
- * - Only animate transform and opacity (GPU)
- * - ease-out for all enter transitions
- * - 150-200ms for UI elements
- * - No animation on keyboard-triggered actions
- * - :active scale(0.97) on pressable elements
+ * Uses reconciliation — no innerHTML rebuilds on every tick.
  */
 
 /* global window, document */
@@ -17,10 +9,10 @@
 (() => {
   'use strict';
 
-  /** @type {WeakMap<HTMLElement, {panel: HTMLElement, metrics: Object}>} */
+  /** @type {WeakMap<HTMLElement, {panel, metricsEl, cached: Object}>} */
   const panels = new WeakMap();
 
-  const PREFIX = 'ob-cp';
+  const P = 'ob-cp';
 
   const init = (container) => {
     try {
@@ -30,9 +22,7 @@
       container.style.position = container.style.position || 'relative';
       container.appendChild(panel);
 
-      panels.set(container, { panel, metrics: {} });
-
-      // Initialize toggle button states from storage
+      panels.set(container, { panel, metricsEl: panel.querySelector(`.${P}-metrics`), cached: {} });
       initButtonStates(panel);
     } catch { /* silent */ }
   };
@@ -48,9 +38,8 @@
   const updateMetrics = (container, metrics) => {
     try {
       const state = panels.get(container);
-      if (!state) return;
-      state.metrics = metrics;
-      renderCompact(state.panel, metrics);
+      if (!state || !state.metricsEl) return;
+      renderCompact(state.metricsEl, metrics, state.cached);
     } catch { /* silent */ }
   };
 
@@ -58,28 +47,24 @@
 
   const buildPanel = (container) => {
     const root = document.createElement('div');
-    root.className = `${PREFIX}-root`;
+    root.className = `${P}-root`;
 
-    // Compact bar (always visible)
     const compact = document.createElement('div');
-    compact.className = `${PREFIX}-compact`;
+    compact.className = `${P}-compact`;
 
-    // Metrics section
     const metricsEl = document.createElement('div');
-    metricsEl.className = `${PREFIX}-metrics`;
+    metricsEl.className = `${P}-metrics`;
 
-    // Toggle button
     const toggleBtn = document.createElement('button');
-    toggleBtn.className = `${PREFIX}-toggle`;
+    toggleBtn.className = `${P}-toggle`;
     toggleBtn.textContent = '\u2699';
     toggleBtn.title = 'Toggle overlays';
 
     compact.appendChild(metricsEl);
     compact.appendChild(toggleBtn);
 
-    // Expanded panel (on hover)
     const expanded = document.createElement('div');
-    expanded.className = `${PREFIX}-expanded`;
+    expanded.className = `${P}-expanded`;
 
     const toggles = [
       { key: 'depthBarEnabled', label: 'Depth' },
@@ -92,7 +77,7 @@
 
     for (const t of toggles) {
       const btn = document.createElement('button');
-      btn.className = `${PREFIX}-feat-btn`;
+      btn.className = `${P}-feat-btn`;
       btn.setAttribute('data-key', t.key);
       btn.textContent = t.label;
       btn.addEventListener('click', (e) => {
@@ -104,53 +89,63 @@
 
     root.appendChild(compact);
     root.appendChild(expanded);
-
-    // Hover behavior: expand on hover with CSS, no JS animation needed
-    // The CSS handles the expand/collapse via :hover
-
     return root;
   };
 
-  // ─── Compact Metrics Rendering ───
+  // ─── Compact Metrics (update-in-place, no innerHTML) ───
 
-  const renderCompact = (panel, metrics) => {
-    const metricsEl = panel.querySelector(`.${PREFIX}-metrics`);
-    if (!metricsEl) return;
-
+  const renderCompact = (metricsEl, metrics, cached) => {
     const { imbalance, spread, cumRatio, wallCount, spikeCount } = metrics;
 
-    // Build compact metrics line
-    let html = '';
+    // Build a simple key to detect changes
+    const key = [
+      spread?.ticks, spread?.pct,
+      imbalance?.lotRatio != null ? Math.round(imbalance.lotRatio * 100) : null,
+      cumRatio?.toFixed?.(2),
+      wallCount, spikeCount,
+    ].join('|');
+
+    if (cached.lastKey === key) return; // skip if nothing changed
+    cached.lastKey = key;
+
+    // Rebuild children (metrics are lightweight — max 5 spans)
+    metricsEl.innerHTML = '';
 
     if (spread) {
-      const spreadColor = spread.ticks > 3 ? '#f87171' : spread.ticks > 1 ? '#d29922' : '#484f58';
-      html += `<span class="${PREFIX}-metric" style="color:${spreadColor}">${spread.ticks}sp</span>`;
+      const c = spread.ticks > 3 ? '#f85149' : spread.ticks > 1 ? '#d29922' : '#484f58';
+      appendMetric(metricsEl, `${spread.ticks}sp`, c);
     }
 
     if (imbalance) {
       const pct = Math.round(imbalance.lotRatio * 100);
-      const imColor = pct > 60 ? '#4ade80' : pct < 40 ? '#f87171' : '#484f58';
-      html += `<span class="${PREFIX}-metric" style="color:${imColor}">${pct}%B</span>`;
+      const c = pct > 60 ? '#3fb950' : pct < 40 ? '#f85149' : '#484f58';
+      appendMetric(metricsEl, `${pct}%B`, c);
     }
 
-    if (cumRatio !== undefined && cumRatio !== null) {
-      const rColor = cumRatio > 1.1 ? '#4ade80' : cumRatio < 0.9 ? '#f87171' : '#484f58';
-      html += `<span class="${PREFIX}-metric" style="color:${rColor}">${cumRatio.toFixed(2)}R</span>`;
+    if (cumRatio != null) {
+      const c = cumRatio > 1.1 ? '#3fb950' : cumRatio < 0.9 ? '#f85149' : '#484f58';
+      appendMetric(metricsEl, cumRatio.toFixed(2) + 'R', c);
     }
 
     if (wallCount > 0) {
-      html += `<span class="${PREFIX}-metric ${PREFIX}-metric--alert">${wallCount}W</span>`;
+      appendMetric(metricsEl, `${wallCount}W`, '#d29922', true);
     }
 
     if (spikeCount > 0) {
-      html += `<span class="${PREFIX}-metric ${PREFIX}-metric--alert">${spikeCount}\u{1F525}</span>`;
+      appendMetric(metricsEl, `${spikeCount}\u{1F525}`, '#e3b341', true);
     }
 
-    if (!html) {
-      html = `<span class="${PREFIX}-metric" style="color:#30363d">--</span>`;
+    if (metricsEl.children.length === 0) {
+      appendMetric(metricsEl, '--', '#30363d');
     }
+  };
 
-    metricsEl.innerHTML = html;
+  const appendMetric = (parent, text, color, pulse = false) => {
+    const span = document.createElement('span');
+    span.className = `${P}-metric` + (pulse ? ` ${P}-metric--alert` : '');
+    span.style.color = color;
+    span.textContent = text;
+    parent.appendChild(span);
   };
 
   // ─── Feature Toggle ───
@@ -161,8 +156,7 @@
         chrome.storage.sync.get({ [key]: true }, (result) => {
           const newVal = !result[key];
           chrome.storage.sync.set({ [key]: newVal }, () => {
-            btn.classList.toggle(`${PREFIX}-feat-btn--off`, !newVal);
-            // Notify content script
+            btn.classList.toggle(`${P}-feat-btn--off`, !newVal);
             chrome.storage.sync.get({}, (allSettings) => {
               chrome.tabs?.query({ active: true, currentWindow: true }, (tabs) => {
                 if (tabs[0]?.id) {
@@ -179,9 +173,8 @@
     } catch { /* silent */ }
   };
 
-  // Initialize button states on first hover
   const initButtonStates = (panel) => {
-    const btns = panel.querySelectorAll(`.${PREFIX}-feat-btn`);
+    const btns = panel.querySelectorAll(`.${P}-feat-btn`);
     if (typeof chrome === 'undefined' || !chrome?.storage?.sync) return;
 
     const keys = Array.from(btns).map(b => b.getAttribute('data-key'));
@@ -192,16 +185,11 @@
       for (const btn of btns) {
         const key = btn.getAttribute('data-key');
         if (!result[key]) {
-          btn.classList.add(`${PREFIX}-feat-btn--off`);
+          btn.classList.add(`${P}-feat-btn--off`);
         }
       }
     });
   };
 
-  // Expose as globals
-  window.ObControlPanel = {
-    init,
-    destroy,
-    updateMetrics,
-  };
+  window.ObControlPanel = { init, destroy, updateMetrics };
 })();

@@ -1,22 +1,16 @@
 /* ═══════════════════════════════════════════════════
-   MOST Enhancer — Design System
-   Cognitive ergonomics: minimal noise, progressive disclosure.
-   Emil Kowalski: only transform/opacity, custom easing, <300ms.
-
-   Two features: Order Book overlays + Price Vol Freq columns.
-   All classes prefixed with ob-ext- or data-pvf attribute.
-   Control panel prefixed with ob-cp-.
+   MOST Enhancer — Design System v2
+   Tight, readable, GPU-only animations, no flicker.
    ═══════════════════════════════════════════════════ */
 
 /* ─── Custom Properties ─── */
 
 :root {
-  --ob-ease-out: cubic-bezier(0.23, 1, 0.32, 1);
-  --ob-ease-in-out: cubic-bezier(0.77, 0, 0.175, 1);
-  --ob-green: #4ade80;
-  --ob-red: #f87171;
-  --ob-orange: #fb923c;
-  --ob-yellow: #facc15;
+  --ob-ease: cubic-bezier(0.23, 1, 0.32, 1);
+  --ob-green: #3fb950;
+  --ob-red: #f85149;
+  --ob-orange: #d29922;
+  --ob-yellow: #e3b341;
   --ob-blue: #58a6ff;
   --ob-purple: #a371f7;
   --ob-bg: #0d1117;
@@ -26,9 +20,11 @@
   --ob-text-mid: #8b949e;
   --ob-text: #c9d1d9;
   --ob-text-bright: #e6edf3;
+  --ob-font: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Segoe UI', Helvetica, Arial, sans-serif;
+  --ob-mono: 'SF Mono', 'Cascadia Code', 'Fira Code', monospace;
 }
 
-/* ─── Control Panel ─── */
+/* ─── Control Panel (bottom-anchored) ─── */
 
 .ob-cp-root {
   position: absolute;
@@ -43,11 +39,13 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 2px 6px;
-  background: var(--ob-bg);
+  padding: 3px 8px;
+  background: rgba(13, 17, 23, 0.92);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
   border-top: 1px solid var(--ob-border);
-  opacity: 0.7;
-  transition: opacity 150ms var(--ob-ease-out);
+  opacity: 0.75;
+  transition: opacity 150ms var(--ob-ease);
 }
 
 .ob-cp-root:hover .ob-cp-compact {
@@ -56,37 +54,37 @@
 
 .ob-cp-metrics {
   display: flex;
-  gap: 6px;
+  gap: 8px;
   align-items: center;
 }
 
 .ob-cp-metric {
-  font-size: 9px;
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif;
+  font-size: 10px;
+  font-family: var(--ob-mono);
   font-variant-numeric: tabular-nums;
   font-weight: 600;
-  letter-spacing: 0.02em;
+  letter-spacing: 0.01em;
   white-space: nowrap;
 }
 
 .ob-cp-metric--alert {
-  animation: ob-cp-pulse 1.5s ease-in-out infinite;
+  animation: ob-pulse 2s ease-in-out infinite;
 }
 
-@keyframes ob-cp-pulse {
+@keyframes ob-pulse {
   0%, 100% { opacity: 1; }
-  50% { opacity: 0.6; }
+  50% { opacity: 0.5; }
 }
 
 .ob-cp-toggle {
   background: none;
   border: none;
   color: var(--ob-text-dim);
-  font-size: 11px;
+  font-size: 12px;
   cursor: pointer;
   padding: 0 2px;
   line-height: 1;
-  transition: color 150ms var(--ob-ease-out), transform 160ms var(--ob-ease-out);
+  transition: color 150ms var(--ob-ease), transform 160ms var(--ob-ease);
 }
 
 .ob-cp-toggle:hover {
@@ -97,17 +95,19 @@
   transform: scale(0.9);
 }
 
-/* Expanded panel — hidden by default, shows on root hover (grows upward from bottom) */
+/* Expanded panel — grows upward from bottom */
 .ob-cp-expanded {
   display: flex;
-  gap: 3px;
-  padding: 3px 6px;
-  background: var(--ob-bg);
+  gap: 4px;
+  padding: 4px 8px;
+  background: rgba(13, 17, 23, 0.95);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
   border-top: 1px solid var(--ob-border);
   opacity: 0;
   transform: translateY(4px);
   pointer-events: none;
-  transition: opacity 150ms var(--ob-ease-out), transform 150ms var(--ob-ease-out);
+  transition: opacity 150ms var(--ob-ease), transform 150ms var(--ob-ease);
   flex-wrap: wrap;
   order: -1;
 }
@@ -119,20 +119,20 @@
 }
 
 .ob-cp-feat-btn {
-  font-size: 8px;
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif;
+  font-size: 9px;
+  font-family: var(--ob-font);
   font-weight: 600;
   letter-spacing: 0.04em;
   text-transform: uppercase;
-  padding: 2px 5px;
+  padding: 2px 6px;
   border: 1px solid var(--ob-border);
-  border-radius: 3px;
+  border-radius: 4px;
   background: var(--ob-surface);
   color: var(--ob-text-mid);
   cursor: pointer;
   white-space: nowrap;
-  transition: background 150ms var(--ob-ease-out), color 150ms var(--ob-ease-out),
-              border-color 150ms var(--ob-ease-out), transform 160ms var(--ob-ease-out);
+  transition: background 150ms var(--ob-ease), color 150ms var(--ob-ease),
+              border-color 150ms var(--ob-ease), transform 160ms var(--ob-ease);
 }
 
 .ob-cp-feat-btn:hover {
@@ -145,11 +145,11 @@
 }
 
 .ob-cp-feat-btn--off {
-  opacity: 0.4;
+  opacity: 0.35;
   background: transparent;
 }
 
-/* ─── Order Book: Depth Bars ─── */
+/* ─── Depth Bars ─── */
 
 .ob-ext-depth-bar {
   position: absolute;
@@ -157,121 +157,160 @@
   height: 100%;
   pointer-events: none;
   z-index: 1;
-  /* No transition — depth bars update every tick, animation adds noise */
   border-radius: 2px;
 }
 
 .ob-ext-depth-bar.ob-ext-bid {
   right: 0;
-  background: rgba(74, 222, 128, 0.22);
+  background: rgba(63, 185, 80, 0.18);
 }
 
 .ob-ext-depth-bar.ob-ext-ask {
   left: 0;
-  background: rgba(248, 113, 113, 0.22);
+  background: rgba(248, 81, 73, 0.18);
 }
 
-/* ─── Order Book: Tags ─── */
+/* ─── Tags ─── */
 
 .ob-ext-tag {
   font-size: 8px;
-  padding: 0 3px;
-  border-radius: 2px;
-  margin-left: 3px;
+  padding: 1px 4px;
+  border-radius: 3px;
+  margin-left: 4px;
   vertical-align: middle;
   font-weight: 700;
   pointer-events: none;
   display: inline-block;
-  line-height: 1.4;
-  letter-spacing: 0.04em;
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif;
+  line-height: 1.3;
+  letter-spacing: 0.06em;
+  font-family: var(--ob-font);
 }
 
-.ob-ext-tag--wall { background: #7c2d12; color: var(--ob-orange); }
-.ob-ext-tag--big  { background: #1a2f1a; color: var(--ob-green); }
-.ob-ext-tag--hot  { background: #1a1a00; color: var(--ob-yellow); }
+.ob-ext-tag--wall { background: rgba(124, 45, 18, 0.6); color: var(--ob-orange); }
+.ob-ext-tag--big  { background: rgba(26, 47, 26, 0.6); color: var(--ob-green); }
+.ob-ext-tag--hot  { background: rgba(26, 26, 0, 0.6); color: var(--ob-yellow); }
 
-/* ─── Order Book: Row Highlighting ─── */
+/* ─── Row Highlights ─── */
 
-tr.ob-ext-row--wall  { background: rgba(219, 109, 40, 0.08) !important; }
-tr.ob-ext-row--spike { background: rgba(250, 204, 21, 0.06) !important; }
+tr.ob-ext-row--wall  { background: rgba(210, 153, 34, 0.06) !important; }
+tr.ob-ext-row--spike { background: rgba(227, 179, 65, 0.05) !important; }
 
-/* ─── Order Book: Frequency Coloring ─── */
+/* ─── Frequency Coloring ─── */
 
 .ob-ext-freq--cold  { color: #30363d !important; }
 .ob-ext-freq--warm  { color: var(--ob-orange) !important; }
 .ob-ext-freq--hot   { color: var(--ob-yellow) !important; font-weight: 700; }
-.ob-ext-freq--spike { color: #ffffff !important; font-weight: 700; text-shadow: 0 0 4px rgba(255,255,255,0.3); }
+.ob-ext-freq--spike { color: #ffffff !important; font-weight: 700; text-shadow: 0 0 6px rgba(255,255,255,0.25); }
 
-/* ─── Order Book: Imbalance Panel ─── */
+/* ─── Imbalance Panel ─── */
 
 .ob-ext-imbalance-panel {
   display: flex;
   flex-direction: column;
-  gap: 3px;
-  padding: 4px 8px;
-  background: var(--ob-bg);
+  gap: 4px;
+  padding: 6px 10px;
+  background: rgba(13, 17, 23, 0.92);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
   border-bottom: 1px solid var(--ob-border);
   font-size: 10px;
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif;
+  font-family: var(--ob-font);
   pointer-events: none;
 }
 
-.ob-ext-meter-row { display: flex; align-items: center; gap: 4px; }
-.ob-ext-meter-label { width: 28px; color: var(--ob-text-dim); font-size: 8px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; flex-shrink: 0; }
-.ob-ext-meter-bar { flex: 1; height: 3px; display: flex; border-radius: 2px; overflow: hidden; background: var(--ob-surface); }
-.ob-ext-meter-fill { height: 100%; transition: width 200ms var(--ob-ease-out); }
-.ob-ext-meter-value { font-size: 9px; font-weight: 700; width: 28px; text-align: right; font-variant-numeric: tabular-nums; flex-shrink: 0; }
+.ob-ext-meter-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
 
-/* ─── Order Book: Spread Bar ─── */
+.ob-ext-meter-label {
+  width: 30px;
+  color: var(--ob-text-dim);
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  flex-shrink: 0;
+}
+
+.ob-ext-meter-bar {
+  flex: 1;
+  height: 4px;
+  display: flex;
+  border-radius: 2px;
+  overflow: hidden;
+  background: var(--ob-surface);
+}
+
+.ob-ext-meter-fill {
+  height: 100%;
+  transition: width 200ms var(--ob-ease);
+}
+
+.ob-ext-meter-value {
+  font-size: 10px;
+  font-weight: 700;
+  width: 30px;
+  text-align: right;
+  font-family: var(--ob-mono);
+  font-variant-numeric: tabular-nums;
+  flex-shrink: 0;
+}
+
+/* ─── Spread Bar ─── */
 
 .ob-ext-spread-bar {
   text-align: center;
-  background: var(--ob-bg);
-  padding: 2px 0;
-  font-size: 9px;
+  background: rgba(13, 17, 23, 0.92);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+  padding: 3px 0;
+  font-size: 10px;
   color: var(--ob-text-dim);
   border-top: 1px solid var(--ob-border);
   border-bottom: 1px solid var(--ob-border);
   pointer-events: none;
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif;
+  font-family: var(--ob-mono);
   font-variant-numeric: tabular-nums;
 }
 
 .ob-ext-spread-bar b { color: var(--ob-text-mid); font-weight: 700; }
 
-/* ─── Order Book: Cumulative Depth ─── */
+/* ─── Cumulative Depth ─── */
 
 .ob-ext-cum-bar { pointer-events: none; }
 
-/* ─── Order Book: Alert Panel ─── */
+/* ─── Alert Panel ─── */
 
 .ob-ext-alert-panel {
   position: absolute;
   top: 0; left: 0; right: 0;
   z-index: 9999;
-  max-height: 80px;
+  max-height: 72px;
   overflow: hidden;
   pointer-events: none;
   display: flex;
   flex-direction: column;
-  -webkit-mask-image: linear-gradient(to bottom, black 50%, transparent 100%);
-  mask-image: linear-gradient(to bottom, black 50%, transparent 100%);
+  -webkit-mask-image: linear-gradient(to bottom, black 40%, transparent 100%);
+  mask-image: linear-gradient(to bottom, black 40%, transparent 100%);
 }
 
 .ob-ext-alert-item {
   display: flex;
   align-items: center;
-  gap: 4px;
+  gap: 5px;
   padding: 2px 8px;
   font-size: 9px;
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif;
-  background: rgba(0, 0, 0, 0.8);
-  border-bottom: 1px solid var(--ob-border);
+  font-family: var(--ob-mono);
+  background: rgba(13, 17, 23, 0.88);
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+  border-bottom: 1px solid rgba(33, 38, 45, 0.5);
   white-space: nowrap;
   opacity: 0;
-  transform: translateY(-3px);
-  transition: opacity 150ms var(--ob-ease-out), transform 150ms var(--ob-ease-out);
+  transform: translateY(-4px);
+  transition: opacity 150ms var(--ob-ease), transform 150ms var(--ob-ease);
 }
 
 .ob-ext-alert-item[data-visible] {
@@ -283,12 +322,6 @@ tr.ob-ext-row--spike { background: rgba(250, 204, 21, 0.06) !important; }
 .ob-ext-alert-msg { flex: 1; overflow: hidden; text-overflow: ellipsis; font-weight: 600; color: var(--ob-text); }
 .ob-ext-alert-time { color: #30363d; font-size: 8px; flex-shrink: 0; font-variant-numeric: tabular-nums; }
 
-/* ─── Price Vol Freq: Cell Transitions ─── */
-
-td[data-pvf="cell"] {
-  transition: background 150ms var(--ob-ease-out);
-}
-
 /* ─── Lot Indicators ─── */
 
 .ob-ext-lot-indicator {
@@ -296,6 +329,12 @@ td[data-pvf="cell"] {
   pointer-events: none;
   z-index: 2;
   border-radius: 1px;
+}
+
+/* ─── PVF Cells ─── */
+
+td[data-pvf="cell"] {
+  transition: background 150ms var(--ob-ease);
 }
 
 /* ─── Reduced Motion ─── */
@@ -315,7 +354,7 @@ td[data-pvf="cell"] {
   }
 }
 
-/* ─── Hover gating: only apply hover effects on fine pointers ─── */
+/* ─── Hover gating ─── */
 
 @media (hover: hover) and (pointer: fine) {
   .ob-cp-root:hover .ob-cp-compact {
