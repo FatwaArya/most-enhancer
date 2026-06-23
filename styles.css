@@ -1,7 +1,6 @@
 /* ═══════════════════════════════════════════════════
-   MOST Enhancer — Design System v2
-   Zero-injection overlays. All visuals in a single
-   absolutely-positioned overlay div per container.
+   MOST Enhancer v4 — Cognitive Trading Aid
+   Pre-attentive visuals. Color/size/motion > numbers.
    ═══════════════════════════════════════════════════ */
 
 /* ─── Custom Properties ─── */
@@ -35,7 +34,98 @@
   overflow: hidden;
 }
 
-/* ─── Depth Bars (full-height, outside edges) ─── */
+/* ═══════════════════════════════════════════════════
+   LAYER 2: Signal Strip
+   Single-glance decision bar above the order book.
+   ═══════════════════════════════════════════════════ */
+
+.ob-ext-signal-strip {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 5px 10px;
+  background: rgba(13, 17, 23, 0.94);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  border-bottom: 1px solid var(--ob-border);
+  font-family: var(--ob-font);
+  pointer-events: none;
+}
+
+.ob-ext-signal-bar {
+  flex: 1;
+  height: 6px;
+  display: flex;
+  border-radius: 3px;
+  overflow: hidden;
+  background: var(--ob-surface);
+}
+
+.ob-ext-signal-fill {
+  height: 100%;
+  transition: width 200ms var(--ob-ease);
+}
+
+.ob-ext-signal-bid {
+  background: var(--ob-green);
+  border-radius: 3px 0 0 3px;
+}
+
+.ob-ext-signal-ask {
+  background: var(--ob-red);
+  border-radius: 0 3px 3px 0;
+}
+
+.ob-ext-signal-word {
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  white-space: nowrap;
+  min-width: 72px;
+  text-align: center;
+}
+
+.ob-ext-signal-pct {
+  font-size: 11px;
+  font-family: var(--ob-mono);
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.ob-ext-signal-badge {
+  font-size: 10px;
+  font-weight: 700;
+  color: var(--ob-orange);
+  background: rgba(210, 153, 34, 0.12);
+  padding: 1px 5px;
+  border-radius: 3px;
+  white-space: nowrap;
+}
+
+.ob-ext-signal-ratio {
+  font-size: 11px;
+  font-family: var(--ob-mono);
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+/* ═══════════════════════════════════════════════════
+   LAYER 1 + 4: Row Pressure & Level Change
+   Left border = pressure. Flash = lot changed.
+   ═══════════════════════════════════════════════════ */
+
+/* Row pressure borders set via inline style in JS.
+   Level change flash also inline style.
+   These are the base transitions for smooth flash effect. */
+
+tr {
+  transition: background 100ms ease-out;
+}
+
+/* ─── Depth Bars ─── */
 
 .ob-ext-depth-bar {
   position: absolute;
@@ -45,15 +135,10 @@
   transition: width 120ms var(--ob-ease), opacity 120ms var(--ob-ease);
 }
 
-.ob-ext-depth-bar.ob-ext-bid {
-  background: rgba(63, 185, 80, 0.22);
-}
+.ob-ext-depth-bar.ob-ext-bid { background: rgba(63, 185, 80, 0.22); }
+.ob-ext-depth-bar.ob-ext-ask { background: rgba(248, 81, 73, 0.22); }
 
-.ob-ext-depth-bar.ob-ext-ask {
-  background: rgba(248, 81, 73, 0.22);
-}
-
-/* ─── Lot Size Bars (thin edge indicators) ─── */
+/* ─── Lot Bars ─── */
 
 .ob-ext-lot-bar {
   position: absolute;
@@ -63,7 +148,7 @@
   border-radius: 1px;
 }
 
-/* ─── Tags (floating over rows) ─── */
+/* ─── Tags (spike only, at grid edges) ─── */
 
 .ob-ext-tag {
   position: absolute;
@@ -79,135 +164,71 @@
   z-index: 3;
 }
 
-.ob-ext-tag--hot  { background: rgba(26, 26, 0, 0.7); color: var(--ob-yellow); }
+.ob-ext-tag--hot { background: rgba(26, 26, 0, 0.7); color: var(--ob-yellow); }
 
-/* ─── Row Highlights (safe — class on original rows) ─── */
+/* ─── Row Highlights ─── */
 
 tr.ob-ext-row--wall  { background: rgba(210, 153, 34, 0.06) !important; }
 tr.ob-ext-row--spike { background: rgba(227, 179, 65, 0.05) !important; }
 
-/* ─── Frequency Coloring (safe — class on original cells) ─── */
+/* ─── Frequency Coloring ─── */
 
 .ob-ext-freq--cold  { color: #30363d !important; }
 .ob-ext-freq--warm  { color: var(--ob-orange) !important; }
 .ob-ext-freq--hot   { color: var(--ob-yellow) !important; font-weight: 700; }
 .ob-ext-freq--spike { color: #ffffff !important; font-weight: 700; text-shadow: 0 0 6px rgba(255,255,255,0.25); }
 
-/* ─── Imbalance Panel ─── */
+/* ═══════════════════════════════════════════════════
+   LAYER 3: Condensed PVF (3 columns)
+   ═══════════════════════════════════════════════════ */
 
-.ob-ext-imbalance-panel {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-  padding: 6px 10px;
-  background: rgba(13, 17, 23, 0.92);
-  backdrop-filter: blur(6px);
-  -webkit-backdrop-filter: blur(6px);
-  border-bottom: 1px solid var(--ob-border);
-  font-size: 10px;
-  font-family: var(--ob-font);
-  pointer-events: none;
-}
-
-.ob-ext-meter-row {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-}
-
-.ob-ext-meter-label {
-  width: 30px;
-  color: var(--ob-text-dim);
-  font-size: 9px;
+/* PVF State pill */
+td[data-pvf="cell"][data-pvf-col="state"] {
   font-weight: 700;
-  letter-spacing: 0.06em;
+  font-size: 9px;
+  letter-spacing: 0.04em;
   text-transform: uppercase;
-  flex-shrink: 0;
+  border-radius: 3px;
+  padding: 1px 6px !important;
 }
 
-.ob-ext-meter-bar {
-  flex: 1;
-  height: 4px;
-  display: flex;
-  border-radius: 2px;
+/* PVF Momentum bar container */
+td[data-pvf="cell"][data-pvf-col="momentum"] {
+  position: relative;
   overflow: hidden;
-  background: var(--ob-surface);
 }
 
-.ob-ext-meter-fill {
-  height: 100%;
-  transition: width 200ms var(--ob-ease);
-}
-
-.ob-ext-meter-value {
-  font-size: 10px;
+/* PVF Signal */
+td[data-pvf="cell"][data-pvf-col="signal"] {
   font-weight: 700;
-  width: 30px;
-  text-align: right;
-  font-family: var(--ob-mono);
-  font-variant-numeric: tabular-nums;
-  flex-shrink: 0;
-}
-
-/* ─── Spread Bar ─── */
-
-.ob-ext-spread-bar {
-  text-align: center;
-  background: rgba(13, 17, 23, 0.92);
-  backdrop-filter: blur(6px);
-  -webkit-backdrop-filter: blur(6px);
-  padding: 3px 0;
-  font-size: 10px;
-  color: var(--ob-text-dim);
-  border-top: 1px solid var(--ob-border);
-  border-bottom: 1px solid var(--ob-border);
-  pointer-events: none;
-  font-family: var(--ob-mono);
-  font-variant-numeric: tabular-nums;
-}
-
-.ob-ext-spread-bar b { color: var(--ob-text-mid); font-weight: 700; }
-
-/* ─── Alert Panel ─── */
-
-.ob-ext-alert-panel {
-  position: absolute;
-  top: 0; left: 0; right: 0;
-  z-index: 9999;
-  max-height: 72px;
-  overflow: hidden;
-  pointer-events: none;
-  display: flex;
-  flex-direction: column;
-  -webkit-mask-image: linear-gradient(to bottom, black 40%, transparent 100%);
-  mask-image: linear-gradient(to bottom, black 40%, transparent 100%);
-}
-
-.ob-ext-alert-item {
-  display: flex;
-  align-items: center;
-  gap: 5px;
-  padding: 2px 8px;
   font-size: 9px;
-  font-family: var(--ob-mono);
-  background: rgba(13, 17, 23, 0.88);
-  backdrop-filter: blur(4px);
-  -webkit-backdrop-filter: blur(4px);
-  border-bottom: 1px solid rgba(33, 38, 45, 0.5);
   white-space: nowrap;
-  opacity: 0;
-  transform: translateY(-4px);
-  transition: opacity 150ms var(--ob-ease), transform 150ms var(--ob-ease);
 }
 
-.ob-ext-alert-item[data-visible] {
-  opacity: 1;
-  transform: translateY(0);
+/* PVF Header cells */
+th[data-pvf="header"] {
+  background: #161b22 !important;
+  color: #58a6ff !important;
+  font-size: 9px !important;
+  padding: 3px 6px !important;
+  text-align: center !important;
+  white-space: nowrap !important;
+  border: 1px solid #21262d !important;
+  font-weight: 700 !important;
+  letter-spacing: 0.04em !important;
+  text-transform: uppercase !important;
 }
 
-.ob-ext-alert-icon { font-size: 10px; flex-shrink: 0; }
-.ob-ext-alert-msg { flex: 1; overflow: hidden; text-overflow: ellipsis; font-weight: 600; color: var(--ob-text); }
-.ob-ext-alert-time { color: #30363d; font-size: 8px; flex-shrink: 0; font-variant-numeric: tabular-nums; }
+/* PVF cell base */
+td[data-pvf="cell"] {
+  text-align: center !important;
+  font-size: 9px !important;
+  padding: 2px 4px !important;
+  white-space: nowrap !important;
+  border: 1px solid #21262d !important;
+  font-variant-numeric: tabular-nums !important;
+  transition: background 150ms var(--ob-ease);
+}
 
 /* ─── Control Panel (bottom-anchored) ─── */
 
@@ -233,15 +254,9 @@ tr.ob-ext-row--spike { background: rgba(227, 179, 65, 0.05) !important; }
   transition: opacity 150ms var(--ob-ease);
 }
 
-.ob-cp-root:hover .ob-cp-compact {
-  opacity: 1;
-}
+.ob-cp-root:hover .ob-cp-compact { opacity: 1; }
 
-.ob-cp-metrics {
-  display: flex;
-  gap: 8px;
-  align-items: center;
-}
+.ob-cp-metrics { display: flex; gap: 8px; align-items: center; }
 
 .ob-cp-metric {
   font-size: 10px;
@@ -252,9 +267,7 @@ tr.ob-ext-row--spike { background: rgba(227, 179, 65, 0.05) !important; }
   white-space: nowrap;
 }
 
-.ob-cp-metric--alert {
-  animation: ob-pulse 2s ease-in-out infinite;
-}
+.ob-cp-metric--alert { animation: ob-pulse 2s ease-in-out infinite; }
 
 @keyframes ob-pulse {
   0%, 100% { opacity: 1; }
@@ -275,7 +288,6 @@ tr.ob-ext-row--spike { background: rgba(227, 179, 65, 0.05) !important; }
 .ob-cp-toggle:hover { color: var(--ob-text-mid); }
 .ob-cp-toggle:active { transform: scale(0.9); }
 
-/* Expanded panel — grows upward from bottom */
 .ob-cp-expanded {
   display: flex;
   gap: 4px;
@@ -319,19 +331,55 @@ tr.ob-ext-row--spike { background: rgba(227, 179, 65, 0.05) !important; }
 .ob-cp-feat-btn:active { transform: scale(0.95); }
 .ob-cp-feat-btn--off { opacity: 0.35; background: transparent; }
 
-/* ─── PVF Cells ─── */
+/* ─── Alert Panel ─── */
 
-td[data-pvf="cell"] {
-  transition: background 150ms var(--ob-ease);
+.ob-ext-alert-panel {
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  z-index: 9999;
+  max-height: 72px;
+  overflow: hidden;
+  pointer-events: none;
+  display: flex;
+  flex-direction: column;
+  -webkit-mask-image: linear-gradient(to bottom, black 40%, transparent 100%);
+  mask-image: linear-gradient(to bottom, black 40%, transparent 100%);
 }
+
+.ob-ext-alert-item {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  padding: 2px 8px;
+  font-size: 9px;
+  font-family: var(--ob-mono);
+  background: rgba(13, 17, 23, 0.88);
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+  border-bottom: 1px solid rgba(33, 38, 45, 0.5);
+  white-space: nowrap;
+  opacity: 0;
+  transform: translateY(-4px);
+  transition: opacity 150ms var(--ob-ease), transform 150ms var(--ob-ease);
+}
+
+.ob-ext-alert-item[data-visible] {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.ob-ext-alert-icon { font-size: 10px; flex-shrink: 0; }
+.ob-ext-alert-msg { flex: 1; overflow: hidden; text-overflow: ellipsis; font-weight: 600; color: var(--ob-text); }
+.ob-ext-alert-time { color: #30363d; font-size: 8px; flex-shrink: 0; font-variant-numeric: tabular-nums; }
 
 /* ─── Reduced Motion ─── */
 
 @media (prefers-reduced-motion: reduce) {
   .ob-ext-depth-bar,
-  .ob-ext-meter-fill,
+  .ob-ext-signal-fill,
   .ob-ext-alert-item,
   td[data-pvf="cell"],
+  tr,
   .ob-cp-compact,
   .ob-cp-expanded,
   .ob-cp-feat-btn,

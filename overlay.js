@@ -1,26 +1,24 @@
 /**
- * overlay.js — Zero-injection overlay renderer.
- * NEVER modifies the original DOM (no appending to cells, no inline styles on rows).
- * All overlays are absolutely positioned in a single overlay div on top of the grid.
- * Layout: [ask depth ←] [price ladder] [→ bid depth]
+ * overlay.js — Cognitive trading overlay renderer.
+ * 4 layers: row pressure, signal strip, depth bars, level change detection.
+ * Zero-injection: all visuals in overlay div or CSS classes.
  */
 
-/* global window, document, requestAnimationFrame */
+/* global window, document */
 
 (() => {
   'use strict';
 
   const P = 'ob-ext';
 
-  // ─── Per-Container State ───
-  // container -> { overlay, rows: Map<rowEl, {depthBar, tagWall, tagBig, tagSpike, lotBar}>,
-  //                imbalancePanel, spreadBar, cumBar, cumBidSegs, cumAskSegs, measureTick }
-  const cState = new WeakMap();
+  // ─── State ───
+  const cState = new WeakMap();  // container -> { overlay, rows, signalStrip, prevLots }
+  const rowCache = new WeakMap(); // rowEl -> { depthBar, lotBar, tagSpike }
 
   const getState = (container) => {
     let s = cState.get(container);
     if (!s) {
-      s = { overlay: null, rows: new Map(), measureTick: 0 };
+      s = { overlay: null, rows: new Map(), signalStrip: null, prevLots: new Map() };
       cState.set(container, s);
     }
     return s;
@@ -40,14 +38,13 @@
     return String(num);
   };
 
+  const clamp = (v, lo, hi) => Math.min(hi, Math.max(lo, v));
+
   // ─── Overlay Container ───
 
   const ensureOverlay = (container, state) => {
     if (state.overlay && container.contains(state.overlay)) return state.overlay;
-
-    // Remove any stale overlays
     container.querySelectorAll(`.${P}-overlay`).forEach(el => el.remove());
-
     const overlay = document.createElement('div');
     overlay.className = `${P}-overlay`;
     container.style.position = container.style.position || 'relative';
@@ -56,33 +53,145 @@
     return overlay;
   };
 
-  // ─── Row Position Measurement ───
-  // Returns {top, height} relative to container for a given row element.
+  // ═══════════════════════════════════════════
+  // LAYER 1: Row Pressure Borders
+  // ═══════════════════════════════════════════
 
-  const measureRow = (rowEl, containerRect) => {
-    const r = rowEl.getBoundingClientRect();
-    return {
-      top: r.top - containerRect.top,
-      height: r.height,
-      left: r.left - containerRect.left,
-      right: containerRect.right - r.right,
-      width: r.width,
-    };
+  const updateRowPressure = (bidRows, askRows) => {
+    const allRows = [...(bidRows || []), ...(askRows || [])];
+    for (const row of allRows) {
+      if (!row.rowElement) continue;
+      const el = row.rowElement;
+      const buyF = row.side === 'bid' ? (row.freq || 0) : 0;
+      const sellF = row.side === 'ask' ? (row.freq || 0) : 0;
+      // For bid rows, freq IS buy-side freq. For ask rows, freq IS sell-side freq.
+      // We don't have cross-side freq per row, so use lot ratio as proxy.
+      const totalLot = (bidRows || []).reduce((s, r) => s + (r.lot || 0), 0) +
+                       (askRows || []).reduce((s, r) => s + (r.lot || 0), 0);
+      const sideLot = row.lot || 0;
+      const ratio = totalLot > 0 ? sideLot / totalLot : 0;
+      const intensity = clamp(ratio * 3, 0.15, 0.6);
+
+      if (row.side === 'bid') {
+        el.style.borderLeft = `3px solid rgba(63,185,80,${intensity.toFixed(2)})`;
+      } else {
+        el.style.borderLeft = `3px solid rgba(248,81,73,${intensity.toFixed(2)})`;
+      }
+    }
   };
 
-  // ─── Depth Bars (positioned in overlay, not in cells) ───
+  // ═══════════════════════════════════════════
+  // LAYER 2: Signal Strip
+  // ═══════════════════════════════════════════
+
+  const computeSignal = (imbalance, cumRatio, walls, spikes) => {
+    const buyPct = imbalance ? Math.round(imbalance.lotRatio * 100) : 50;
+    const wallCount = walls?.length || 0;
+    const spikeCount = spikes?.length || 0;
+
+    // Determine dominant signal
+    let signal = 'NEUTRAL';
+    let color = '#484f58';
+
+    if (cumRatio > 1.3 && buyPct > 65) {
+      signal = 'STRONG BUY'; color = '#3fb950';
+    } else if (cumRatio > 1.1 && buyPct > 58) {
+      signal = 'BUY'; color = '#3fb950';
+    } else if (cumRatio < 0.7 && buyPct < 35) {
+      signal = 'STRONG SELL'; color = '#f85149';
+    } else if (cumRatio < 0.9 && buyPct < 42) {
+      signal = 'SELL'; color = '#f85149';
+    } else if (wallCount >= 3) {
+      signal = 'WALLS'; color = '#d29922';
+    } else if (spikeCount >= 2) {
+      signal = 'SPIKES'; color = '#e3b341';
+    }
+
+    return { signal, color, buyPct, wallCount, spikeCount };
+  };
+
+  const updateSignalStrip = (imbalance, spread, cumRatio, walls, spikes, container) => {
+    const grid = container.querySelector('.grid.grid-cols-2');
+    if (!grid) return;
+
+    let s = cState.get(container);
+    if (!s) { s = getState(container); }
+
+    if (!s.signalStrip || !container.contains(s.signalStrip)) {
+      const strip = document.createElement('div');
+      strip.className = `${P}-signal-strip`;
+      grid.parentElement.insertBefore(strip, grid);
+      s.signalStrip = strip;
+    }
+
+    const sig = computeSignal(imbalance, cumRatio, walls, spikes);
+    const ratio = imbalance ? imbalance.lotRatio : 0.5;
+
+    // Build the bar fill
+    const bidWidth = Math.round(ratio * 100);
+    const askWidth = 100 - bidWidth;
+
+    s.signalStrip.innerHTML =
+      `<div class="${P}-signal-bar">` +
+        `<div class="${P}-signal-fill ${P}-signal-bid" style="width:${bidWidth}%"></div>` +
+        `<div class="${P}-signal-fill ${P}-signal-ask" style="width:${askWidth}%"></div>` +
+      `</div>` +
+      `<span class="${P}-signal-word" style="color:${sig.color}">${sig.signal}</span>` +
+      `<span class="${P}-signal-pct" style="color:${ratio > 0.55 ? '#3fb950' : ratio < 0.45 ? '#f85149' : '#484f58'}">${sig.buyPct}%B</span>` +
+      (sig.wallCount > 0 ? `<span class="${P}-signal-badge">${sig.wallCount}W</span>` : '') +
+      (sig.spikeCount > 0 ? `<span class="${P}-signal-badge">${sig.spikeCount}\u{1F525}</span>` : '') +
+      `<span class="${P}-signal-ratio" style="color:${cumRatio > 1.1 ? '#3fb950' : cumRatio < 0.9 ? '#f85149' : '#484f58'}">R:${cumRatio.toFixed(2)}</span>`;
+  };
+
+  // ═══════════════════════════════════════════
+  // LAYER 4: Level Change Detection
+  // ═══════════════════════════════════════════
+
+  const detectLevelChanges = (bidRows, askRows, container, state) => {
+    const prevLots = state.prevLots;
+    const newLots = new Map();
+
+    const allRows = [...(bidRows || []), ...(askRows || [])];
+
+    for (const row of allRows) {
+      if (!row.rowElement || !row.price) continue;
+      const key = `${row.side}-${row.price}`;
+      const currentLot = row.lot || 0;
+      newLots.set(key, currentLot);
+
+      const prevLot = prevLots.get(key);
+      if (prevLot !== undefined && prevLot !== currentLot) {
+        const el = row.rowElement;
+        const diff = currentLot - prevLot;
+
+        // Flash effect
+        if (diff > 0) {
+          // Lot increased — green flash
+          el.style.transition = 'background 100ms ease-out';
+          el.style.background = 'rgba(63,185,80,0.12)';
+          setTimeout(() => { el.style.background = ''; }, 300);
+        } else if (diff < 0) {
+          // Lot decreased (order pulled) — red flash
+          el.style.transition = 'background 100ms ease-out';
+          el.style.background = 'rgba(248,81,73,0.12)';
+          setTimeout(() => { el.style.background = ''; }, 300);
+        }
+      }
+    }
+
+    state.prevLots = newLots;
+  };
+
+  // ═══════════════════════════════════════════
+  // Existing: Depth Bars, Lot Indicators, Freq
+  // ═══════════════════════════════════════════
 
   const updateDepthBars = (rows, side, overlay, containerRect, state) => {
-    const overlayRect = overlay.getBoundingClientRect();
-
     for (const row of rows) {
       if (!row.rowElement || !row.lot) continue;
-
       const rs = getRowState(state, row.rowElement);
       const pos = measureRow(row.rowElement, containerRect);
 
-      // Bid bars extend from right edge of overlay inward
-      // Ask bars extend from left edge of overlay inward
       let bar = rs.depthBar;
       if (!bar) {
         bar = document.createElement('div');
@@ -95,12 +204,10 @@
       const opacity = 0.08 + (row.heatAlpha || 0.15) * 0.6;
 
       if (side === 'bid') {
-        bar.style.right = '0';
-        bar.style.left = 'auto';
-        bar.style.width = `${pct * 0.4}%`; // max 40% of overlay width
+        bar.style.right = '0'; bar.style.left = 'auto';
+        bar.style.width = `${pct * 0.4}%`;
       } else {
-        bar.style.left = '0';
-        bar.style.right = 'auto';
+        bar.style.left = '0'; bar.style.right = 'auto';
         bar.style.width = `${pct * 0.4}%`;
       }
       bar.style.top = `${pos.top}px`;
@@ -108,8 +215,6 @@
       bar.style.opacity = String(opacity);
     }
   };
-
-  // ─── Lot Size Indicators (thin bar at edge of price cell) ───
 
   const updateLotIndicators = (rows, side, overlay, containerRect, state) => {
     const maxLot = Math.max(...rows.map(r => r.lot || 0));
@@ -121,7 +226,7 @@
       const rs = getRowState(state, row.rowElement);
 
       if (ratio < 0.6) {
-        if (rs.lotBar) { rs.lotBar.style.display = 'none'; }
+        if (rs.lotBar) rs.lotBar.style.display = 'none';
         continue;
       }
 
@@ -133,73 +238,16 @@
 
       const pos = measureRow(row.rowElement, containerRect);
       const h = Math.round(ratio * pos.height);
-      const color = side === 'bid' ? 'rgba(63,185,80,0.5)' : 'rgba(248,81,73,0.5)';
+      const color = side === 'bid' ? 'rgba(63,185,80,0.4)' : 'rgba(248,81,73,0.4)';
 
       rs.lotBar.style.display = '';
       rs.lotBar.style.top = `${pos.top + pos.height - h}px`;
       rs.lotBar.style.height = `${h}px`;
       rs.lotBar.style.background = color;
-
-      if (side === 'bid') {
-        // Right edge of the ask table (left side of grid)
-        rs.lotBar.style.left = '48%';
-      } else {
-        // Left edge of the bid table (right side of grid)
-        rs.lotBar.style.right = '48%';
-      }
+      rs.lotBar.style.left = side === 'bid' ? '48%' : 'auto';
+      rs.lotBar.style.right = side === 'bid' ? 'auto' : '48%';
     }
   };
-
-  // ─── Tags (freq spikes only — positioned at grid edges, not over data) ───
-
-  const updateTags = (spikes, overlay, containerRect, state) => {
-    const activeRows = new Set(spikes.map(s => s.rowElement));
-
-    // Hide all tags first
-    for (const [, rs] of state.rows) {
-      if (rs.tagSpike) rs.tagSpike.style.display = 'none';
-    }
-
-    for (const s of spikes) {
-      if (!s.rowElement) continue;
-      const rs = getRowState(state, s.rowElement);
-      const pos = measureRow(s.rowElement, containerRect);
-
-      if (!rs.tagSpike) {
-        rs.tagSpike = document.createElement('span');
-        rs.tagSpike.className = `${P}-tag ${P}-tag--hot`;
-        rs.tagSpike.textContent = '\uD83D\uDD25';
-        overlay.appendChild(rs.tagSpike);
-      }
-
-      // Position at the outer edge so it doesn't cover price data
-      rs.tagSpike.style.display = '';
-      rs.tagSpike.style.top = `${pos.top + 1}px`;
-      if (s.side === 'bid') {
-        rs.tagSpike.style.left = `${pos.left - 18}px`;  // left of bid table
-      } else {
-        rs.tagSpike.style.left = `${pos.left + pos.width + 4}px`; // right of ask table
-      }
-    }
-  };
-
-  // ─── Row Highlighting (CSS class on original rows — safe, no layout impact) ───
-
-  const updateRowHighlights = (container, walls, spikes) => {
-    const grid = container.querySelector('.grid.grid-cols-2');
-    if (!grid) return;
-    grid.querySelectorAll(`.${P}-row--wall, .${P}-row--spike`).forEach(el => {
-      el.classList.remove(`${P}-row--wall`, `${P}-row--spike`);
-    });
-    for (const w of walls) {
-      if (w.rowElement) w.rowElement.classList.add(`${P}-row--wall`);
-    }
-    for (const s of spikes) {
-      if (s.rowElement) s.rowElement.classList.add(`${P}-row--spike`);
-    }
-  };
-
-  // ─── Freq Coloring (CSS class on original cells — safe) ───
 
   const updateFreqClasses = (bidRows, askRows) => {
     const allRows = [...(bidRows || []), ...(askRows || [])];
@@ -213,120 +261,33 @@
       const freqCell = row.rowElement.children[freqCellIdx];
       if (!freqCell) continue;
 
-      const freq = row.freq || 0;
-      const ratio = maxFreq > 0 ? freq / maxFreq : 0;
+      const ratio = maxFreq > 0 ? (row.freq || 0) / maxFreq : 0;
       const cls = row._isSpike ? `${P}-freq--spike`
         : ratio > 0.7 ? `${P}-freq--hot`
         : ratio > 0.3 ? `${P}-freq--warm`
         : `${P}-freq--cold`;
 
-      const cold = `${P}-freq--cold`, warm = `${P}-freq--warm`,
-            hot = `${P}-freq--hot`, spike = `${P}-freq--spike`;
       if (!freqCell.classList.contains(cls)) {
-        freqCell.classList.remove(cold, warm, hot, spike);
+        freqCell.classList.remove(`${P}-freq--cold`, `${P}-freq--warm`, `${P}-freq--hot`, `${P}-freq--spike`);
         freqCell.classList.add(cls);
       }
     }
   };
 
-  // ─── Imbalance Panel (container-level, cached) ───
-
-  const updateImbalancePanel = (imbalance, container) => {
-    const grid = container.querySelector('.grid.grid-cols-2');
-    if (!grid) return;
-
-    let s = cState.get(container);
-    if (!s) { s = {}; cState.set(container, s); }
-
-    if (!s.imbalancePanel || !container.contains(s.imbalancePanel)) {
-      const panel = document.createElement('div');
-      panel.className = `${P}-imbalance-panel`;
-
-      const lotRow = buildMeterRow('LOT');
-      const freqRow = buildMeterRow('FREQ');
-      const totalsRow = document.createElement('div');
-      totalsRow.className = `${P}-meter-row`;
-      totalsRow.style.cssText = 'font-size:9px;color:#484f58;gap:6px;padding-top:3px;border-top:1px solid #21262d;margin-top:2px;';
-
-      panel.appendChild(lotRow);
-      panel.appendChild(freqRow);
-      panel.appendChild(totalsRow);
-      grid.parentElement.insertBefore(panel, grid);
-
-      s.imbalancePanel = panel;
-      s.lotRow = lotRow;
-      s.freqRow = freqRow;
-      s.totalsRow = totalsRow;
-    }
-
-    updateMeterRow(s.lotRow, imbalance.lotRatio, '#3fb950', '#f85149');
-    updateMeterRow(s.freqRow, imbalance.freqRatio, '#58a6ff', '#a371f7');
-    s.totalsRow.innerHTML =
-      `<span>B: ${fmt(imbalance.bidLotTotal)}</span>` +
-      `<span style="flex:1;text-align:center;color:#30363d">\u00B7</span>` +
-      `<span>A: ${fmt(imbalance.askLotTotal)}</span>`;
+  const measureRow = (rowEl, containerRect) => {
+    const r = rowEl.getBoundingClientRect();
+    return {
+      top: r.top - containerRect.top,
+      height: r.height,
+      left: r.left - containerRect.left,
+      right: containerRect.right - r.right,
+      width: r.width,
+    };
   };
-
-  const buildMeterRow = (label) => {
-    const row = document.createElement('div');
-    row.className = `${P}-meter-row`;
-    const l = document.createElement('span');
-    l.className = `${P}-meter-label`; l.textContent = label;
-    const lv = document.createElement('span'); lv.className = `${P}-meter-value`;
-    const bar = document.createElement('div'); bar.className = `${P}-meter-bar`;
-    const lb = document.createElement('div'); lb.className = `${P}-meter-fill`;
-    const rb = document.createElement('div'); rb.className = `${P}-meter-fill`;
-    bar.appendChild(lb); bar.appendChild(rb);
-    const rv = document.createElement('span'); rv.className = `${P}-meter-value`;
-    row.appendChild(l); row.appendChild(lv); row.appendChild(bar); row.appendChild(rv);
-    return row;
-  };
-
-  const updateMeterRow = (row, ratio, lc, rc) => {
-    const lv = row.children[1], bar = row.children[2],
-          lb = bar.children[0], rb = bar.children[1], rv = row.children[3];
-    const lp = `${(ratio * 100).toFixed(0)}%`;
-    const rp = `${((1 - ratio) * 100).toFixed(0)}%`;
-    if (lv.textContent !== lp) lv.textContent = lp;
-    if (rv.textContent !== rp) rv.textContent = rp;
-    lv.style.color = lc; rv.style.color = rc;
-    const lw = `${ratio * 100}%`, rw = `${(1 - ratio) * 100}%`;
-    if (lb.style.width !== lw) lb.style.width = lw;
-    if (rb.style.width !== rw) rb.style.width = rw;
-    lb.style.background = lc; rb.style.background = rc;
-  };
-
-  // ─── Spread Bar (container-level, cached) ───
-
-  const updateSpreadBar = (spread, cumRatio, levels, container) => {
-    const grid = container.querySelector('.grid.grid-cols-2');
-    if (!grid) return;
-
-    let s = cState.get(container);
-    if (!s) { s = {}; cState.set(container, s); }
-
-    if (!s.spreadBar || !container.contains(s.spreadBar)) {
-      const bar = document.createElement('div');
-      bar.className = `${P}-spread-bar`;
-      grid.parentElement.insertBefore(bar, grid.nextSibling);
-      s.spreadBar = bar;
-    }
-
-    const rc = cumRatio > 1.1 ? '#3fb950' : cumRatio < 0.9 ? '#f85149' : '#484f58';
-    s.spreadBar.innerHTML =
-      `<span>Spread <b>${spread.ticks} pt</b> (${spread.pct}%)</span>` +
-      ` <span style="color:#30363d">\u00B7</span> ` +
-      `<span>Ratio <b style="color:${rc}">${cumRatio.toFixed(2)}</b></span>` +
-      ` <span style="color:#30363d">\u00B7</span> ` +
-      `<span>L${levels}</span>`;
-  };
-
-  // ─── Stale Row Cleanup ───
 
   const cleanupStaleRows = (state) => {
     for (const [rowEl, rs] of state.rows) {
       if (!document.contains(rowEl)) {
-        // Row removed from DOM — remove its overlay elements
         for (const key of Object.keys(rs)) {
           if (rs[key] && rs[key].remove) rs[key].remove();
         }
@@ -335,7 +296,9 @@
     }
   };
 
-  // ─── Main Render ───
+  // ═══════════════════════════════════════════
+  // Main Render
+  // ═══════════════════════════════════════════
 
   const renderOverlay = (params) => {
     try {
@@ -350,45 +313,50 @@
       const overlay = ensureOverlay(container, state);
       const containerRect = container.getBoundingClientRect();
 
-      // Clean up orphaned row elements
       cleanupStaleRows(state);
 
-      // Row highlights + freq classes (safe — only CSS classes on original rows)
-      updateRowHighlights(container, walls, spikes);
-      updateFreqClasses(bidRows, askRows);
+      // Layer 1: Row pressure borders
+      updateRowPressure(bidRows, askRows);
 
-      // Per-row overlays (depth bars, lot indicators, tags — all in overlay div)
+      // Layer 2: Signal strip
+      updateSignalStrip(imbalance, spread, cumRatio, walls, spikes, container);
+
+      // Layer 4: Level change detection
+      detectLevelChanges(bidRows, askRows, container, state);
+
+      // Depth bars + lot indicators
       if (settings.depthBarEnabled !== false) {
         updateDepthBars(bidRows, 'bid', overlay, containerRect, state);
         updateDepthBars(askRows, 'ask', overlay, containerRect, state);
       }
-
       updateLotIndicators(bidRows, 'bid', overlay, containerRect, state);
       updateLotIndicators(askRows, 'ask', overlay, containerRect, state);
-      updateTags(spikes, overlay, containerRect, state);
 
-      // Container-level overlays
-      if (settings.imbalanceEnabled !== false) {
-        updateImbalancePanel(imbalance, container);
-      }
-      if (settings.spreadBarEnabled !== false) {
-        updateSpreadBar(spread, cumRatio, settings.levels || 10, container);
-      }
+      // Freq coloring
+      updateFreqClasses(bidRows, askRows);
     } catch { /* silent */ }
   };
 
-  // ─── Cleanup ───
+  // ═══════════════════════════════════════════
+  // Cleanup
+  // ═══════════════════════════════════════════
 
   const clearOverlay = (container) => {
     if (!container) return;
     try {
-      container.querySelectorAll(`.${P}-overlay`).forEach(el => el.remove());
+      container.querySelectorAll(`.${P}-overlay, .${P}-signal-strip`).forEach(el => el.remove());
       container.querySelectorAll(`[class*="${P}-freq--"]`).forEach(el => {
         el.classList.remove(`${P}-freq--cold`, `${P}-freq--warm`, `${P}-freq--hot`, `${P}-freq--spike`);
       });
-      container.querySelectorAll(`[class*="${P}-row--"]`).forEach(el => {
-        el.classList.remove(`${P}-row--wall`, `${P}-row--spike`);
-      });
+      // Remove row pressure borders
+      const grid = container.querySelector('.grid.grid-cols-2');
+      if (grid) {
+        grid.querySelectorAll('tr').forEach(el => {
+          el.style.borderLeft = '';
+          el.style.background = '';
+          el.style.transition = '';
+        });
+      }
       cState.delete(container);
     } catch { /* silent */ }
   };

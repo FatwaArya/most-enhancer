@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
   "name": "MOST Enhancer",
-  "version": "3.0.0",
-  "description": "Order book depth overlays + Price Vol Freq analysis for Mandiri Sekuritas / Growin. Zero-injection rendering.",
+  "version": "4.0.0",
+  "description": "Cognitive trading aid — pre-attentive order book overlays + condensed PVF analysis for MOST/Growin.",
   "permissions": ["activeTab", "storage"],
   "host_permissions": [
     "https://*.most.co.id/*",

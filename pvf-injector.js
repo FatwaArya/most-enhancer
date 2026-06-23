@@ -42,7 +42,7 @@
       const hasSellFreq = headers.some(h => h.includes('sell') && h.includes('freq'));
 
       // Must have PVF columns but NOT already have our injected columns
-      const hasInjected = headers.some(h => h === '\u0394lot' || h === 'mom');
+      const hasInjected = headers.some(h => h === 'state' || h === 'mom');
 
       if (hasPrice && hasVolume && hasFreq && hasBuyLot && hasSellLot && hasBuyFreq && hasSellFreq && !hasInjected) {
         results.push(table);
@@ -109,12 +109,8 @@
   // ─── Column Injection ───
 
   const NEW_COLUMNS = [
-    { key: 'deltaLot', label: '\u0394Lot' },
-    { key: 'buyPercent', label: 'Buy %' },
-    { key: 'deltaFreq', label: '\u0394Freq' },
-    { key: 'flowDelta', label: 'Flow \u0394' },
-    { key: 'momentum', label: 'Mom' },
     { key: 'state', label: 'State' },
+    { key: 'momentum', label: 'Mom' },
     { key: 'signal', label: 'Signal' },
   ];
 
@@ -300,32 +296,21 @@
         if (!col) continue;
 
         switch (col) {
-          case 'deltaLot':
-            cell.textContent = fmtDelta(m.deltaLot);
-            cell.style.color = m.deltaLot >= 0 ? '#3fb950' : '#f85149';
-            cell.style.fontWeight = Math.abs(m.deltaLot) > 500 ? '700' : '400';
-            break;
-          case 'buyPercent':
-            cell.textContent = Math.round(m.buyPercent) + '%';
-            cell.style.color = m.buyPercent > 70 ? '#3fb950' : m.buyPercent >= 50 ? '#7ee787' : m.buyPercent >= 40 ? '#d29922' : '#f85149';
-            cell.style.fontWeight = m.buyPercent > 70 || m.buyPercent < 40 ? '700' : '400';
-            break;
-          case 'deltaFreq':
-            cell.textContent = fmtDelta(m.deltaFreq);
-            cell.style.color = m.deltaFreq >= 0 ? '#3fb950' : '#f85149';
-            break;
-          case 'flowDelta':
-            cell.textContent = fmtDelta(m.flowDelta);
-            cell.style.color = m.flowDelta >= 0 ? '#3fb950' : '#f85149';
-            cell.style.fontWeight = Math.abs(m.flowDelta) > 5000 ? '700' : '400';
-            break;
-          case 'momentum':
-            cell.textContent = fmtMomentum(m.momentum);
-            cell.style.fontWeight = m.momentum > 80 ? '700' : '400';
-            break;
           case 'state':
             cell.textContent = m.state;
             cell.style.cssText += getStateBadge(m.state);
+            break;
+          case 'momentum':
+            // Visual bar + number
+            const barWidth = Math.round(m.momentum);
+            const barColor = m.momentum > 80 ? '#3fb950' : m.momentum > 60 ? '#e3b341' : m.momentum > 40 ? '#d29922' : '#f85149';
+            cell.innerHTML =
+              `<div style="display:flex;align-items:center;gap:3px">` +
+                `<div style="flex:1;height:3px;background:#21262d;border-radius:2px;overflow:hidden">` +
+                  `<div style="width:${barWidth}%;height:100%;background:${barColor};border-radius:2px;transition:width 120ms ease-out"></div>` +
+                `</div>` +
+                `<span style="font-size:8px;color:${barColor};font-weight:700;min-width:20px;text-align:right">${Math.round(m.momentum)}</span>` +
+              `</div>`;
             break;
           case 'signal':
             cell.textContent = m.signalLabel;
