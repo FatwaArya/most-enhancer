@@ -84,12 +84,19 @@
   // LAYER 2: Signal Strip
   // ═══════════════════════════════════════════
 
-  const computeSignal = (imbalance, cumRatio, walls, spikes) => {
+  const computeSignal = (imbalance, cumRatio, walls, spikes, bidRows, askRows) => {
+    const totalLot = (bidRows || []).reduce((s, r) => s + (r.lot || 0), 0) +
+                     (askRows || []).reduce((s, r) => s + (r.lot || 0), 0);
+
+    // No data — market closed or empty OB
+    if (totalLot === 0) {
+      return { signal: 'NO DATA', color: '#30363d', buyPct: 50, wallCount: 0, spikeCount: 0 };
+    }
+
     const buyPct = imbalance ? Math.round(imbalance.lotRatio * 100) : 50;
     const wallCount = walls?.length || 0;
     const spikeCount = spikes?.length || 0;
 
-    // Determine dominant signal
     let signal = 'NEUTRAL';
     let color = '#484f58';
 
@@ -110,7 +117,7 @@
     return { signal, color, buyPct, wallCount, spikeCount };
   };
 
-  const updateSignalStrip = (imbalance, spread, cumRatio, walls, spikes, container) => {
+  const updateSignalStrip = (imbalance, spread, cumRatio, walls, spikes, container, bidRows, askRows) => {
     const grid = container.querySelector('.grid.grid-cols-2');
     if (!grid) return;
 
@@ -124,7 +131,7 @@
       s.signalStrip = strip;
     }
 
-    const sig = computeSignal(imbalance, cumRatio, walls, spikes);
+    const sig = computeSignal(imbalance, cumRatio, walls, spikes, bidRows, askRows);
     const ratio = imbalance ? imbalance.lotRatio : 0.5;
 
     // Build the bar fill
@@ -319,7 +326,7 @@
       updateRowPressure(bidRows, askRows);
 
       // Layer 2: Signal strip
-      updateSignalStrip(imbalance, spread, cumRatio, walls, spikes, container);
+      updateSignalStrip(imbalance, spread, cumRatio, walls, spikes, container, bidRows, askRows);
 
       // Layer 4: Level change detection
       detectLevelChanges(bidRows, askRows, container, state);
