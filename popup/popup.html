@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>MOST Enhancer</title>
+  <link rel="stylesheet" href="popup.css">
+</head>
+<body>
+  <div class="popup">
+    <div class="popup-header">
+      <span class="popup-title">MOST Enhancer</span>
+      <span class="popup-version">v2.0</span>
+      <span id="status" class="status-dot status-off"></span>
+    </div>
+
+    <div class="popup-section">
+      <div class="section-title">Detection</div>
+      <label class="field">
+        <span class="field-label">Wall Threshold (%)</span>
+        <input type="number" id="wallThresholdPct" min="1" max="50" step="1">
+      </label>
+      <label class="field">
+        <span class="field-label">Big Lot Threshold</span>
+        <input type="number" id="bigLotThreshold" min="10000" max="10000000" step="10000">
+      </label>
+      <label class="field">
+        <span class="field-label">Freq Spike Multiplier</span>
+        <input type="number" id="freqSpikeMultiplier" min="1" max="10" step="0.5">
+      </label>
+      <label class="field">
+        <span class="field-label">Cumulative Levels</span>
+        <input type="number" id="levels" min="3" max="30" step="1">
+      </label>
+    </div>
+
+    <div class="popup-section">
+      <div class="section-title">Order Book</div>
+      <label class="toggle-field">
+        <span class="field-label">Depth Bars</span>
+        <input type="checkbox" id="depthBarEnabled">
+      </label>
+      <label class="toggle-field">
+        <span class="field-label">Heatmap</span>
+        <input type="checkbox" id="heatmapEnabled">
+      </label>
+      <label class="toggle-field">
+        <span class="field-label">Imbalance Meters</span>
+        <input type="checkbox" id="imbalanceEnabled">
+      </label>
+      <label class="toggle-field">
+        <span class="field-label">Spread Bar</span>
+        <input type="checkbox" id="spreadBarEnabled">
+      </label>
+      <label class="toggle-field">
+        <span class="field-label">Alerts</span>
+        <input type="checkbox" id="alertsEnabled">
+      </label>
+      <label class="toggle-field">
+        <span class="field-label">Sound</span>
+        <input type="checkbox" id="soundEnabled">
+      </label>
+    </div>
+
+    <div class="popup-section">
+      <div class="section-title">Price Vol Freq</div>
+      <label class="toggle-field">
+        <span class="field-label">PVF Columns</span>
+        <input type="checkbox" id="pvfEnabled">
+      </label>
+    </div>
+
+    <button id="resetBtn" class="reset-btn">Reset to Defaults</button>
+  </div>
+  <script src="popup.js"></script>
+</body>
+</html>
